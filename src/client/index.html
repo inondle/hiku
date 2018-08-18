@@ -1,0 +1,48 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+
+	<title>HIKU</title>
+	<meta name="description" content="HIKU">
+	<meta name="author" content="Quentin Fulsher">
+
+	<h6>HIKU CHAT!!</h6>
+
+	<div id="login" data-bind="visible: !loggedIn()">
+		<label>Username:</label>
+		<input type="text" data-bind="value: username" placeholder="username"/>
+		<button data-bind="click: registerUser">Submit</button>
+	</div>
+
+	<div id="chat" data-bind="visible: loggedIn()">
+		<h6 data-bind="text: displayUsername"></h6>
+		<ul data-bind="foreach: messages">
+			<li>
+				<span class="hiku-author" data-bind="text: author"></span>
+				<span class="hiku-message" data-bind="text: message"></span>
+			</li>
+		</ul>
+
+		 <!-- write something unique / really think about it hard / or not its haiku -->
+		<input class="hiku-input-5" placeholder="Stanza 1" data-bind="value: stanza1"/>
+		<input class="hiku-input-7" placeholder="Stanza 2" data-bind="value: stanza2"/>
+		<input class="hiku-input-5" placeholder="Stanza 3" data-bind="value: stanza3"/>
+		<button data-bind="click: sendMessage">Publish</button>
+	</div>
+	
+</head>
+
+<body>
+	<script src="js/libs/jquery-3.3.1.min.js"></script>
+	<script src="js/libs/knockout-3.4.2.js"></script>
+	<script src="js/main.js"></script>
+	<script>
+		var app = new HikuClient();
+		ko.applyBindings(app);
+	</script>
+</body>
+
+</html>
