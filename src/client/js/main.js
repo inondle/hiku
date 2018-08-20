@@ -14,10 +14,21 @@
 		that.stanza2 = ko.observable( "" );
 		that.stanza3 = ko.observable( "" );
 
-		// TODO: register `handleEvent` to handle SSE.
+		that.es = new EventSource( '/stream' );
 
-		// Test message to view output
-		that.messages.push( { author: 'q', message: 'hello' } );
+		that.es.addEventListener( 'NEW_USER', function ( e ) {
+			console.log( e );
+		} );
+
+		that.es.addEventListener( 'NEW_MESSAGE', function ( e ) {
+			var newMessage = JSON.parse( e.data );
+
+			if ( !that.messages().some( ( m ) => m.id == newMessage.id ) ) {
+				that.messages.push( newMessage );
+			}
+		} );
+
+		that.refreshMessages();
 	}
 
 	HikuClient.prototype.constructor = HikuClient;
@@ -38,10 +49,9 @@
 	HikuClient.prototype.refreshMessages = function () {
 		var that = this;
 
-		$.get( '/message/all' ).done( function ( response ) {
-			AddMessages.call(that, response.messages);
-			console.log( response );
-		} );
+		return $.get( '/message/all' ).done( function ( messages ) {
+			AddMessages.call( that, messages );
+		} ).promise();
 	};
 
 	HikuClient.prototype.sendMessage = function () {
@@ -49,45 +59,45 @@
 			haiku = [ that.stanza1(), that.stanza2(), that.stanza3() ].join( ' / ' ),
 			newMessage = {
 				author: that.username(),
-				message: haiku
+				text: haiku
 			};
 
-		$.post( {
+		return $.post( {
 			url: '/message',
 			data: JSON.stringify( newMessage ),
 			contentType: 'application/json',
 			dataType: 'JSON',
-		} ).done( function ( response ) {
-			that.stanza1( "" );
-			that.stanza2( "" );
-			that.stanza3( "" );
-
-			// TODO: The server should send us a notification about this, don't push it manually
-			that.messages.push( newMessage );
-			console.log( response );
-		} );
+		} ).done( function (response) {
+			if(response.success) {
+				that.stanza1( "" );
+				that.stanza2( "" );
+				that.stanza3( "" );
+			} else {
+				if(response.failedValidation) {
+					alert('Haiku failed validation because: "'+response.reason+'".');
+				}
+			}
+		} ).promise();
 	};
 
-	HikuClient.prototype.handleEvent = function () {
-		var that = this;
-	};
-
-	function AddMessages(messages) {
+	function AddMessages( messages ) {
 		var that = this;
 
-		if(!messages)
+		if ( !messages )
 			return;
 
-		messages.forEach(AddMessage.bind(that));
+		messages.forEach( AddMessage.bind( that ) );
 	}
 
-	function AddMessage(message) {
+	function AddMessage( message ) {
 		var that = this;
 
-		if(!message)
+		if ( !message )
 			return;
 
-		that.messages.push(message);
+		if ( !that.messages().some( ( m ) => m.id == newMessage.id ) ) {
+			that.messages.push( message );
+		}
 	}
 
 }() )
