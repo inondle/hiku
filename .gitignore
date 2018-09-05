@@ -1,2 +1,5 @@
 /node_modules
 /src/db/*.db
+
+# MacOS
+*.DS_Store
