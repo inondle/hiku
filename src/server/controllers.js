@@ -2,7 +2,7 @@ const path = require( 'path' );
 const _ = require( 'lodash' );
 const config = require( './config' );
 const { User, Message } = require( './models' );
-const asyncValidateHaiku = require( './asyncValidateHaiku' );
+const {asyncValidateHaiku, getSyllableCount} = require( './asyncValidateHaiku' );
 const SSE = require( 'express-sse' );
 const sse = new SSE();
 
@@ -51,9 +51,7 @@ function wireUpControllers( app ) {
 		var text = req.body.text,
 			authorName = req.body.author;
 
-		var poem = text.trim()
-			.split( ' / ' )
-			.join( ' ' );
+		var poem = text.trim();
 
 		asyncValidateHaiku( poem ).then( () => {
 			User.findOne( { where: { username: authorName } } )
@@ -62,10 +60,16 @@ function wireUpControllers( app ) {
 					( e ) => logErrorAndRespondWithJson( res, e )
 				);
 		}, (e) => {
-			console.log( 'Not a Haiku: ' + text );
-			console.log( 'reason: ' + e.reason);
-			res.json( Object.assign( {}, { success: false, failedValidation: true }, e ) );
-		} );
+			if(e instanceof Error) {
+				// code broke...
+				console.error(e);
+				throw e;
+			} else {
+				console.log( 'Not a Haiku: ' + text );
+				console.log( 'reason: ' + e.reason );
+				res.json( Object.assign( {}, { success: false, failedValidation: true }, e ) );
+			}
+		} ).catch(function(e) {console.error(e)});
 	} );
 }
 

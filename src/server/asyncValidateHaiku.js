@@ -3,61 +3,94 @@ const syllablesAsync = require( 'nlp-syllables-async' );
 const _ = require( 'lodash' );
 nlp.plugin( syllablesAsync );
 
-function asyncValidateHaiku( poem ) {
+var whitespaceRegex = /\W+/g;
+
+/**
+ * Counts the syllables in an array of words.
+ * @param {Array} words - the array of words. 
+ */
+function getSyllableCount(words) {
+	if ( !words || !words.length ) {
+		return Promise.resolve(0);
+	}
+
+	if(_.isString(words)) {
+		words = words.trim().split(whitespaceRegex);
+	}
+
+	return getSyllablesForWords(words)
+		.then(countAllSyllables);
+}
+
+/**
+ * Validates whole haiku poem.
+ * @param {String} poem 
+ */
+function asyncValidateHaiku( poem, stanzaOpts ) {
+	// TODO: Wire this up to affect how the validation handles syllable counting
+	stanzaOpts = _.defaults( stanzaOpts || {}, {
+		format: [5,7,5],
+		// TODO: Other options...
+	} );
+	
+	var stanzas = poem.split(' / ');
+
+	// TODO: Work these validations back in, might be somewhat useful
+	// if ( words.length < 3 ) {
+	// 	reject( { reason: 'Less than 3 words.' } );
+	// 	return;
+	// } else if ( words.length > 17 ) {
+	// 	reject( { reason: 'More than 17 words.' } );
+	// 	return;
+	// }
+
 	return new Promise( ( resolve, reject ) => {
-		const poemWords = poem.trim().split( ' ' );
+		// transform each stanza into a validation promise, then when all the validation is finished, resolve
+		var stanzaValidationPromises = stanzas.map(function(stanza, i) {
+			var stanzaLength = stanzaOpts.format[i];
+			const words = stanza.trim().split( whitespaceRegex );
 
-		if ( poemWords.length < 3 ) {
-			reject( { reason: 'Less than 3 words.' } );
-			return
-		} else if ( poemWords.length > 17 ) {
-			reject( { reason: 'More than 17 words.' } )
-			return
-		}
+			return getSyllablesForWords( words ).then( ( syllables ) => {
+				var syllableCount = _.sumBy( syllables, 'length' );
 
-		var syllablesPromises = poemWords.map( ( word ) => {
-			return nlp.text( word ).termsWithSyllables();
-		} );
-
-		Promise.all( syllablesPromises ).then( ( words ) => {
-			const syllables = words.map( t => {
-				var term = t[ 0 ];
-				if ( !term ) {
-					return [];
+				if ( syllableCount != stanzaLength ) {
+					reject( { reason: `Stanza ${i+1} does not have ${stanzaLength} syllables, actual count: ${stanza1Count}` } );
+					return
 				}
+			});
+		});
 
-				return term.syllables
-			} );
-
-			const total_syllables = _.sumBy( syllables, 'length' )
-
-
-			if ( total_syllables !== 17 ) {
-				reject( { reason: 'Syllable count does not equal 17, actual count: ' + total_syllables } )
-				return
-			}
-
-			// TODO: Splice the array correctly....
-			var stanza1Count = _.sumBy( syllables.splice( 0, 4 ), 'length' );
-			var stanza2Count = _.sumBy( syllables.splice( 5, 11 ), 'length' );
-			var stanza3Count = _.sumBy( syllables.splice( 12, 16 ), 'length' );
-
-			if ( stanza1Count != 5 ) {
-				reject( { reason: 'Stanza 1 does not have 5 syllables: ' + stanza1Count } )
-				return
-			} else if ( stanza2Count != 7 ) {
-				reject( { reason: 'Stanza 2 does not have 7 syllables: ' + stanza2Count } )
-				return
-			} else if ( stanza3Count != 5 ) {
-				reject( { reason: 'Stanza 3 does not have 5 syllables: ' + stanza3Count } )
-				return
-			}
-
-			resolve();
-
-		}, ( e ) => reject( { reason: 'nlp error', error: e } ) )
-		.catch(e => reject( { reason: 'runtime error: ' + e }));
+		Promise.all(stanzaValidationPromises).then(() => resolve({}));
 	} );
 }
 
-module.exports = asyncValidateHaiku;
+/**
+ * Helper function which sums all syllables after they've been processed by nlp_compromise
+ */
+function countAllSyllables( syllables ) {
+	return _.sumBy( syllables, 'length' );
+}
+
+/**
+ * takes in an array of words and transforms it into it's syllables
+ */
+function getSyllablesForWords( words ) {
+	return Promise.all( words.map( ( word ) => {
+		return nlp.text( word ).termsWithSyllables();
+	} ) ).then( getSyllablesFromTerm );
+}
+
+/**
+ * extracts the syllables from the nlp object
+ */
+function getSyllablesFromTerm( nlpWords ) {
+	return nlpWords.map( t => {
+		let term = t[ 0 ];
+		return term ? term.syllables : [];
+	} );
+}
+
+module.exports = {
+	asyncValidateHaiku: asyncValidateHaiku,
+	getSyllableCount: getSyllableCount
+};
